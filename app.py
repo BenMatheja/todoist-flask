@@ -82,17 +82,15 @@ def handle_event():
 
         # Take payload and compute hmac
         app.logger.debug('Reading Request Payload ' + event_id)
-        payload = request.json
         request_hmac = request.headers.get('X-Todoist-Hmac-SHA256')
         app.logger.debug('Processing Request Payload ' + event_id)
-        app.logger.debug(payload)
         calculated_hmac = base64.b64encode(
-            hmac.new(settings.TODOIST_CLIENT_SECRET, msg=str(payload), digestmod=hashlib.sha256).digest())
+            hmac.new(settings.TODOIST_CLIENT_SECRET, msg=request.get_data(), digestmod=hashlib.sha256).digest())
         app.logger.debug('Processed Request Payload ' + event_id)
         app.logger.debug('start comparing ' + calculated_hmac + ' with ' + request_hmac + ' for ' + event_id)
         if request_hmac == calculated_hmac:
             app.logger.debug('HMAC of the request is valid ' + event_id)
-            if payload['event_data']['content'] == "Kommen Zeit notieren":
+            if request.json['event_data']['content'] == "Kommen Zeit notieren":
                 app.logger.debug('Event in request is clock in, create clock out task for ' + event_id)
                 create_task(event_id)
 
