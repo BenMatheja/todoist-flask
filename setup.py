@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name='todoist-flask',
-    version='0.00.01',
+    version='1.00.00',
     packages=['todoist', 'todoist.managers'],
     author='Ben Matheja',
     author_email='post@benmatheja.de',
