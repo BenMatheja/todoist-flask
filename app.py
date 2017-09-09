@@ -38,26 +38,18 @@ def index():
 
 def create_task(delivery_id):
     now = datetime.datetime.now()
-    # Configure maximum allowed working time here
-    # Its 10:43h for me here, because my company reduces the presence time by 45 minutes if you clocked in before 9:00
-    # 2 Minutes for application processing
-
-    acc = datetime.timedelta(hours=10, minutes=43) + now
+    acc = datetime.timedelta(hours=settings.WORKING_HOURS, minutes=settings.WORKING_MINUTES) + now
     clockin_time = str(now.hour) + ':' + str('%02d' % now.minute)
     clockout_time = str(acc.hour) + ':' + str('%02d' % acc.minute)
-    # app.logger.debug('Clock out at ' + clockout_time)
 
-    # If devmode is False Push Event to Todoist and create new Tasks for Clocking Out
     app.logger.info(
         'Create Todoist Task: ' + 'Gehen (Gekommen: ' + clockin_time + ') due at ' + clockout_time + ' for ' + delivery_id)
-    # if not settings.DEV_MODE:
-    # app.logger.debug('Preparing Request for Todoist')
     api = todoist.TodoistAPI(token=settings.TODOIST_API_ACCESS)
-    # app.logger.debug('API connected')
+
     task = api.items.add('Gehen (Gekommen: ' + clockin_time + ')',
                          project_id='178923234', date_string=clockout_time, labels=[2147513595],
                          priority=3)
-    # add Todoist Trace-ID here
+
     api.notes.add(task['id'], delivery_id)
     api.commit()
     app.logger.debug('Task created for request ' + delivery_id)
