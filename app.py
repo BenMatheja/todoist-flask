@@ -45,7 +45,7 @@ def create_task(delivery_id):
         api.commit()
 
 
-@app.route('/todoist/events/v1/tasks', methods=['POST'])
+@app.route('/todoist/events/v1/items', methods=['POST'])
 def handle_event():
     begin_time = datetime.datetime.now()
     # Check if user-agent matches to todoist webhooks
