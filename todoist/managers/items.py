@@ -1,0 +1,186 @@
+# -*- coding: utf-8 -*-
+from .. import models
+from .generic import Manager, AllMixin, GetByIdMixin, SyncMixin
+
+
+class ItemsManager(Manager, AllMixin, GetByIdMixin, SyncMixin):
+
+    state_name = 'items'
+    object_type = 'item'
+
+    def add(self, content, project_id, **kwargs):
+        """
+        Creates a local item object.
+        """
+        obj = models.Item({'content': content, 'project_id': project_id},
+                          self.api)
+        obj.temp_id = obj['id'] = self.api.generate_uuid()
+        obj.data.update(kwargs)
+        self.state[self.state_name].append(obj)
+        cmd = {
+            'type': 'item_add',
+            'temp_id': obj.temp_id,
+            'uuid': self.api.generate_uuid(),
+            'args': {key: obj.data[key] for key in obj.data if key != 'id'}
+        }
+        self.queue.append(cmd)
+        return obj
+
+    def update(self, item_id, **kwargs):
+        """
+        Updates an item remotely.
+        """
+        args = {'id': item_id}
+        args.update(kwargs)
+        cmd = {
+            'type': 'item_update',
+            'uuid': self.api.generate_uuid(),
+            'args': args,
+        }
+        self.queue.append(cmd)
+
+    def delete(self, item_ids):
+        """
+        Deletes items remotely.
+        """
+        cmd = {
+            'type': 'item_delete',
+            'uuid': self.api.generate_uuid(),
+            'args': {
+                'ids': item_ids
+            }
+        }
+        self.queue.append(cmd)
+
+    def move(self, project_items, to_project):
+        """
+        Moves items to another project remotely.
+        """
+        cmd = {
+            'type': 'item_move',
+            'uuid': self.api.generate_uuid(),
+            'args': {
+                'project_items': project_items,
+                'to_project': to_project,
+            },
+        }
+        self.queue.append(cmd)
+
+    def close(self, item_id):
+        """
+        Marks item as done
+        """
+        cmd = {
+            'type': 'item_close',
+            'uuid': self.api.generate_uuid(),
+            'args': {
+                'id': item_id,
+            },
+        }
+        self.queue.append(cmd)
+
+    def complete(self, item_ids, force_history=0):
+        """
+        Marks items as completed remotely.
+        """
+        cmd = {
+            'type': 'item_complete',
+            'uuid': self.api.generate_uuid(),
+            'args': {
+                'ids': item_ids,
+                'force_history': force_history,
+            },
+        }
+        self.queue.append(cmd)
+
+    def uncomplete(self, item_ids, update_item_orders=1, restore_state=None):
+        """
+        Marks items as not completed remotely.
+        """
+        args = {
+            'ids': item_ids,
+            'update_item_orders': update_item_orders,
+        }
+        if restore_state:
+            args['restore_state'] = restore_state
+        cmd = {
+            'type': 'item_uncomplete',
+            'uuid': self.api.generate_uuid(),
+            'args': args,
+        }
+        self.queue.append(cmd)
+
+    def update_date_complete(self, item_id, new_date_utc=None, date_string=None,
+                             is_forward=None):
+        """
+        Completes a recurring task remotely.
+        """
+        args = {
+            'id': item_id,
+        }
+        if new_date_utc:
+            args['new_date_utc'] = new_date_utc
+        if date_string:
+            args['date_string'] = date_string
+        if is_forward:
+            args['is_forward'] = is_forward
+        cmd = {
+            'type': 'item_update_date_complete',
+            'uuid': self.api.generate_uuid(),
+            'args': args,
+        }
+        self.queue.append(cmd)
+
+    def update_orders_indents(self, ids_to_orders_indents):
+        """
+        Updates the order and indents of multiple items remotely.
+        """
+        cmd = {
+            'type': 'item_update_orders_indents',
+            'uuid': self.api.generate_uuid(),
+            'args': {
+                'ids_to_orders_indents': ids_to_orders_indents,
+            },
+        }
+        self.queue.append(cmd)
+
+    def update_day_orders(self, ids_to_orders):
+        """
+        Updates in the local state the day orders of multiple items remotely.
+        """
+        cmd = {
+            'type': 'item_update_day_orders',
+            'uuid': self.api.generate_uuid(),
+            'args': {
+                'ids_to_orders': ids_to_orders,
+            },
+        }
+        self.queue.append(cmd)
+
+    def get_completed(self, project_id, **kwargs):
+        """
+        Returns a project's completed items.
+        """
+        params = {'token': self.token,
+                  'project_id': project_id}
+        params.update(kwargs)
+        return self.api._get('items/get_completed', params=params)
+
+    def get(self, item_id):
+        """
+        Gets an existing item.
+        """
+        params = {'token': self.token,
+                  'item_id': item_id}
+        obj = self.api._get('items/get', params=params)
+        if obj and 'error' in obj:
+            return None
+        data = {'projects': [], 'items': [], 'notes': []}
+        if obj.get('project'):
+            data['projects'].append(obj.get('project'))
+        if obj.get('item'):
+            data['items'].append(obj.get('item'))
+        if obj.get('notes'):
+            data['notes'] += obj.get('notes')
+        self.api._update_state(data)
+        return obj
