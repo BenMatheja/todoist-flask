@@ -1,0 +1,12 @@
+[Unit]
+Description=Gunicorn Application Server running todoist-flask
+After=syslog.target network.target electrum.service
+
+[Service]
+User=www-data
+Group=www-data
+ExecStart=/bin/bash -c "source /opt/todoist-flask/todoist-flask-env/bin/activate ; chdir /opt/todoist-flask ; exec gunicorn app:app --workers 4 --bind localhost:8050  --log-config gunicorn_log.conf"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
