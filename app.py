@@ -68,7 +68,7 @@ def handle_event():
             app.logger.info('Incoming Request is not valid JSON ' + event_id)
             end = datetime.datetime.now()
             app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-                end - begin_time).seconds.__str__() + 's status:rejected ' + event_id)
+                end - begin_time).microseconds.__str__() + 's status:rejected ' + event_id)
             return jsonify({'status': 'rejected',
                             'reason': 'malformed request'}), 400
 
@@ -88,19 +88,19 @@ def handle_event():
 
             end = datetime.datetime.now()
             app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-                end - begin_time).seconds.__str__() + 's status:accepted ' + event_id)
+                end - begin_time).microseconds.__str__() + 's status:accepted ' + event_id)
             return jsonify({'status': 'accepted', 'request_id': event_id}), 200
         else:
             app.logger.info('Incoming HMAC not valid')
             end = datetime.datetime.now()
             app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-                end - begin_time).seconds.__str__() + 's status:rejected ' + event_id)
+                end - begin_time).microseconds.__str__() + 's status:rejected ' + event_id)
             return jsonify({'status': 'rejected',
                             'reason': 'invalid request'}), 400
     else:
         end = datetime.datetime.now()
         app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-            end - begin_time).seconds.__str__() + 's status:rejected ' + event_id)
+            end - begin_time).microseconds.__str__() + 's status:rejected ' + event_id)
         return jsonify({'status': 'rejected'}), 400
 
 
