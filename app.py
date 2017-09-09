@@ -15,7 +15,7 @@ import datetime
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route('/todoist')
 def index():
     return "Welcome to todoist python API"
 
@@ -89,7 +89,7 @@ def handle_event():
     # app.logger.handlers.extend(gunicorn_error_logger.handlers)
     # app.logger.setLevel(logging.DEBUG)
 
-    handler.setFormatter(formatter)
+    #handler.setFormatter(formatter)
     #app.logger.addHandler(handler)
     # gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
     # app.logger.handlers.extend(gunicorn_error_handlers)
@@ -102,7 +102,7 @@ def setup_logging():
     #if not app.debug:
         # In production mode, add log handler to sys.stderr.
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler = RotatingFileHandler('/Users/benmatheja/workspace/todoist-flask/todoist-flask.log', maxBytes=20000, backupCount=1)
+    handler = RotatingFileHandler('todoist-flask.log', maxBytes=20000, backupCount=1)
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
     app.logger.addHandler(handler)
