@@ -13,15 +13,13 @@ Perform the following steps
 ```shell
 $ git clone git@github.com:BenMatheja/todoist-flask.git
 $ cd todoist-flask
-$ virtualenv flask
-New python executable in flask/bin/python
+$ virtualenv todoist-flask-env
+New python executable in todoist-flask-env/bin/python
 Installing setuptools............................done.
 Installing pip...................done.
-$ flask/bin/pip install flask
-$ cd todoist
-$ ../flask/bin/pip install -e .
-$ cd ..
-$ flask/bin/python app.py
+$ source todoist-flask-env/bin/activate
+$ pip install -e .
+$ gunicorn app:app --log-config gunicron_log.conf
 ```
 
 Adapt settings_sample.py to correspond with credentials.

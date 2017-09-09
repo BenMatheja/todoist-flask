@@ -14,9 +14,11 @@ import datetime
 
 app = Flask(__name__)
 
+
 @app.route('/')
 def index():
     return "Welcome to todoist python API"
+
 
 def create_task(delivery_id):
     now = datetime.datetime.now()
@@ -41,6 +43,7 @@ def create_task(delivery_id):
         # add Todoist Trace-ID here
         api.notes.add(task['id'], 'Delivered by ' + delivery_id)
         api.commit()
+
 
 @app.route('/todoist/events/v1/tasks', methods=['POST'])
 def handle_event():
@@ -70,19 +73,39 @@ def handle_event():
                 create_task(request.headers.get('X-Todoist-Delivery-ID'))
 
             end = datetime.datetime.now()
-            app.logger.info('Processed request from ' +request.headers.get('X-Real-IP') +' in ' + (end - begin_time).seconds.__str__() + 's status:accepted')
+            app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
+            end - begin_time).seconds.__str__() + 's status:accepted')
             return jsonify({'status': 'accepted', 'request_id': request.headers.get('X-Todoist-Delivery-ID')}), 200
     else:
         end = datetime.datetime.now()
         app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-         end - begin_time).seconds.__str__() + 's status: rejected')
+            end - begin_time).seconds.__str__() + 's status:rejected')
         return jsonify({'status': 'rejected'}), 400
 
+    # Initiate Loghandler
+    # https://stackoverflow.com/questions/26578733/why-is-flask-application-not-creating-any-logs-when-hosted-by-gunicorn
+    # andler = RotatingFileHandler('todoist-flask.log', maxBytes=10000, backupCount=1)
+    # gunicorn_error_logger = logging.getLogger('gunicorn.error')
+    # app.logger.handlers.extend(gunicorn_error_logger.handlers)
+    # app.logger.setLevel(logging.DEBUG)
 
-if __name__ == '__main__':
-    handler = RotatingFileHandler('todoist-flask.log', maxBytes=10000, backupCount=1)
-    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    #app.logger.addHandler(handler)
+    # gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
+    # app.logger.handlers.extend(gunicorn_error_handlers)
+    # app.logger.addHandler(handler)
+    # app.logger.info('my info')
+    # app.logger.debug('debug message')
+
+@app.before_first_request
+def setup_logging():
+    #if not app.debug:
+        # In production mode, add log handler to sys.stderr.
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler = RotatingFileHandler('/Users/benmatheja/workspace/todoist-flask/todoist-flask.log', maxBytes=20000, backupCount=1)
+    handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
     app.logger.addHandler(handler)
-    app.run(debug=True)
+
+if __name__ == '__main__':
+    app.run(debug=False)
