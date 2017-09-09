@@ -20,6 +20,8 @@ Installing pip...................done.
 $ flask/bin/pip install flask
 $ cd todoist
 $ ../flask/bin/pip install -e .
+$ cd ..
+$ flask/bin/python app.py
 ```
 
 Adapt settings_sample.py to correspond with credentials.
