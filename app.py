@@ -24,7 +24,7 @@ def setup_logging():
     app.logger.addHandler(handler)
 
 
-@app.before_request
+# @app.before_request
 def log_request_info():
     app.logger.debug('Headers: %s', request.headers)
     app.logger.debug('Body: %s', request.get_data())
@@ -36,23 +36,25 @@ def index():
                     'health': 'ok'}), 200
 
 
-def create_task(delivery_id):
+# %{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{HOUR}:%{MINUTE}:%{SECOND} - app - %{LOGLEVEL} - %{UUID:trace-id}
+def create_task(event_id, begin_time):
     now = datetime.datetime.now()
     acc = datetime.timedelta(hours=settings.WORKING_HOURS, minutes=settings.WORKING_MINUTES) + now
     clockin_time = str(now.hour) + ':' + str('%02d' % now.minute)
     clockout_time = str(acc.hour) + ':' + str('%02d' % acc.minute)
 
-    app.logger.info(
-        'Create Todoist Task: ' + 'Gehen (Gekommen: ' + clockin_time + ') due at ' + clockout_time + ' for ' + delivery_id)
+    log_info(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+             'Create Todoist Task: ' + 'Gehen (Gekommen: ' + clockin_time + ') due at ' + clockout_time)
     api = todoist.TodoistAPI(token=settings.TODOIST_API_ACCESS)
 
     task = api.items.add('Gehen (Gekommen: ' + clockin_time + ')',
                          project_id='178923234', date_string=clockout_time, labels=[2147513595],
                          priority=3)
 
-    api.notes.add(task['id'], delivery_id)
+    api.notes.add(task['id'], event_id)
     api.commit()
-    app.logger.debug('Task created for request ' + delivery_id)
+    log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+              'Task created')
 
 
 @app.route('/todoist/events/v1/items', methods=['POST'])
@@ -60,48 +62,67 @@ def handle_event():
     begin_time = datetime.datetime.now()
     event_id = request.headers.get('X-Todoist-Delivery-ID')
     # Check if user-agent matches to todoist webhooks
+
     if request.headers.get('USER-AGENT') == 'Todoist-Webhooks':
-        app.logger.debug(
-            'Incoming Request from ' + request.headers.get('X-Real-IP') + ' with matching user-agent' + event_id)
+        log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+                  'Incoming Request with matching user-agent')
+
         # Maybe use a statemachine here? Need to hop to else case from this one
         if not request.json:
-            app.logger.info('Incoming Request is not valid JSON ' + event_id)
-            end = datetime.datetime.now()
-            app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-                end - begin_time).microseconds.__str__() + 's status:rejected ' + event_id)
+            log_info(begin_time, request.headers.get('X-Real-IP'), 'rejected', event_id,
+                     'Request contains no valid JSON')
             return jsonify({'status': 'rejected',
                             'reason': 'malformed request'}), 400
 
         # Take payload and compute hmac
-        app.logger.debug('Reading Request Payload ' + event_id)
+        log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+                  'Reading Payload')
         request_hmac = request.headers.get('X-Todoist-Hmac-SHA256')
-        app.logger.debug('Processing Request Payload ' + event_id)
+        log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+                  'Processing Payload')
         calculated_hmac = base64.b64encode(
             hmac.new(settings.TODOIST_CLIENT_SECRET, msg=request.get_data(), digestmod=hashlib.sha256).digest())
-        app.logger.debug('Processed Request Payload ' + event_id)
-        app.logger.debug('start comparing ' + calculated_hmac + ' with ' + request_hmac + ' for ' + event_id)
-        if request_hmac == calculated_hmac:
-            app.logger.debug('HMAC of the request is valid ' + event_id)
-            if request.json['event_data']['content'] == "Kommen Zeit notieren":
-                app.logger.debug('Event in request is clock in, create clock out task for ' + event_id)
-                create_task(event_id)
 
-            end = datetime.datetime.now()
-            app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-                end - begin_time).microseconds.__str__() + 's status:accepted ' + event_id)
+        log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+                  'HMAC calculated')
+        log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+                  'Comparing ' + calculated_hmac + ' with ' + request_hmac)
+
+        if request_hmac == calculated_hmac:
+            log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id, 'HMAC is valid')
+
+            if request.json['event_data']['content'] == "Kommen Zeit notieren":
+                log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
+                          'Event in request is a clock in')
+                create_task(event_id, begin_time)
+
+            log_info(begin_time, request.headers.get('X-Real-IP'), 'accepted', event_id,
+                     'Processing completed')
             return jsonify({'status': 'accepted', 'request_id': event_id}), 200
         else:
-            app.logger.info('Incoming HMAC not valid')
-            end = datetime.datetime.now()
-            app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-                end - begin_time).microseconds.__str__() + 's status:rejected ' + event_id)
+            log_info(begin_time, request.headers.get('X-Real-IP'), 'rejected', event_id,
+                     'Request contains an invalid HMAC')
             return jsonify({'status': 'rejected',
                             'reason': 'invalid request'}), 400
     else:
         end = datetime.datetime.now()
-        app.logger.info('Processed request from ' + request.headers.get('X-Real-IP') + ' in ' + (
-            end - begin_time).microseconds.__str__() + 's status:rejected ' + event_id)
+        log_info(begin_time, request.headers.get('X-Real-IP'), 'rejected', event_id,
+                 'Request User-Agent not valid')
         return jsonify({'status': 'rejected'}), 400
+
+
+# %{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{HOUR}:%{MINUTE}:%{SECOND} - app - %{LOGLEVEL} - %{UUID:trace-id}
+
+def log_info(begin_time, request_ip, status, trace_id, message, service='handle_event'):
+    end = datetime.datetime.now()
+    processing_time = (end - begin_time).microseconds.__str__()
+    app.logger.info(trace_id + ' - ' + request_ip + ' - ' + service + ' - ' +  processing_time + ' - ' + status + ' - ' + message)
+
+
+def log_debug(begin_time, request_ip, status, trace_id, message, service='handle_event'):
+    end = datetime.datetime.now()
+    processing_time = (end - begin_time).microseconds.__str__()
+    app.logger.debug(trace_id + ' - ' + request_ip + ' - ' + service + ' - ' + processing_time + ' - ' + status + ' - ' + message)
 
 
 if __name__ == '__main__':
