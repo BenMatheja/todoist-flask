@@ -2,7 +2,6 @@
 from flask import Flask
 from flask import request
 from flask import jsonify
-from flask import abort
 from logging.handlers import RotatingFileHandler
 import logging
 import settings
@@ -36,7 +35,6 @@ def index():
                     'health': 'ok'}), 200
 
 
-# %{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{HOUR}:%{MINUTE}:%{SECOND} - app - %{LOGLEVEL} - %{UUID:trace-id}
 def create_task(event_id, begin_time):
     now = datetime.datetime.now()
     acc = datetime.timedelta(hours=settings.WORKING_HOURS, minutes=settings.WORKING_MINUTES) + now
@@ -44,7 +42,7 @@ def create_task(event_id, begin_time):
     clockout_time = str(acc.hour) + ':' + str('%02d' % acc.minute)
 
     log_info(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
-             'Create Todoist Task: ' + 'Gehen (Gekommen: ' + clockin_time + ') due at ' + clockout_time)
+             'Create Todoist Task: ' + 'Gehen (Gekommen: ' + clockin_time + ') due at ' + clockout_time, 'create_task')
     api = todoist.TodoistAPI(token=settings.TODOIST_API_ACCESS)
 
     task = api.items.add('Gehen (Gekommen: ' + clockin_time + ')',
@@ -54,7 +52,7 @@ def create_task(event_id, begin_time):
     api.notes.add(task['id'], event_id)
     api.commit()
     log_debug(begin_time, request.headers.get('X-Real-IP'), 'processing', event_id,
-              'Task created')
+              'Task created', 'create_task')
 
 
 @app.route('/todoist/events/v1/items', methods=['POST'])
@@ -111,18 +109,18 @@ def handle_event():
         return jsonify({'status': 'rejected'}), 400
 
 
-# %{YEAR}-%{MONTHNUM}-%{MONTHDAY} %{HOUR}:%{MINUTE}:%{SECOND} - app - %{LOGLEVEL} - %{UUID:trace-id}
-
 def log_info(begin_time, request_ip, status, trace_id, message, service='handle_event'):
     end = datetime.datetime.now()
     processing_time = (end - begin_time).microseconds.__str__()
-    app.logger.info(trace_id + ' - ' + request_ip + ' - ' + service + ' - ' +  processing_time + ' - ' + status + ' - ' + message)
+    app.logger.info(
+        trace_id + ' - ' + request_ip + ' - ' + service + ' - ' + processing_time + ' - ' + status + ' - ' + message)
 
 
 def log_debug(begin_time, request_ip, status, trace_id, message, service='handle_event'):
     end = datetime.datetime.now()
     processing_time = (end - begin_time).microseconds.__str__()
-    app.logger.debug(trace_id + ' - ' + request_ip + ' - ' + service + ' - ' + processing_time + ' - ' + status + ' - ' + message)
+    app.logger.debug(
+        trace_id + ' - ' + request_ip + ' - ' + service + ' - ' + processing_time + ' - ' + status + ' - ' + message)
 
 
 if __name__ == '__main__':
